@@ -1,5 +1,3 @@
-'use strict';
-
 const http = require('http');
 const app = require('../app');
 
@@ -8,20 +6,20 @@ require('dotenv').config();
 
 /**
  * Returns a normalized port to initialize a server ewith
- * @param {*} value 
+ * @param {*} value
  */
 function getNormalizedPort(value) {
-    const port = parseInt(value, 10);
+  const port = parseInt(value, 10);
 
-    if ( Number.isNaN(port) ) {
-        return value;
-    }
+  if (Number.isNaN(port)) {
+    return value;
+  }
 
-    if ( port >= 0 ) {
-        return port;
-    }
+  if (port >= 0) {
+    return port;
+  }
 
-    return false;
+  return false;
 }
 
 /**
@@ -45,47 +43,53 @@ const server = http.createServer(app);
  * @param {*} err Error
  */
 function onError(err) {
-    if (err.syscall !== 'listen') {
-        throw err;
-    }
+  if (err.syscall !== 'listen') {
+    throw err;
+  }
 
-    const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
+  const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
 
-    switch ( err.code ) {
-        case 'EACCES':
-            console.error(`${bind} requires elevated privledges`);
-            process.exit(1);
-            break;
-        case 'EADDRINUSE':
-            console.error(`${bind} is already in use`);
-            process.exit(1);
-            break;
-        default:
-            throw err;
-    }
+  switch (err.code) {
+    case 'EACCES':
+      console.error(`${bind} requires elevated privledges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`${bind} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw err;
+  }
 }
 
 /**
  * Handles sending the success response when server listening has begun
  */
 function onListening() {
-    const addr = server.address();
-    const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
+  const addr = server.address();
+  const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
 
-    console.log("     ");
-    console.log("==================== [ JET Backend Initialized ] ====================")
+  console.log('     ');
+  console.log(
+    '==================== [ JET Backend Initialized ] ====================',
+  );
 
-    console.log(`Listening on ${bind} in ${app.get('env')} environment`);
-    console.log(`Server is now ready on port ${addr.port}`);
+  console.log(`Listening on ${bind} in ${app.get('env')} environment`);
+  console.log(`Server is now ready on port ${addr.port}`);
 
-    if ( process.env.NODE_ENV === 'development' ) {
-        console.log("You can now visit http://localhost:" + port + "/");
-    }
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`You can now visit http://localhost:${port}/`);
+  }
 
-    console.log("=====================================================================");
-    console.log("     ");
-    console.log("Be advised for any issues or errors printed while the initial setup is being finalized.");
-    console.log("     ");
+  console.log(
+    '=====================================================================',
+  );
+  console.log('     ');
+  console.log(
+    'Be advised for any issues or errors printed while the initial setup is being finalized.',
+  );
+  console.log('     ');
 }
 
 server.listen(port);
