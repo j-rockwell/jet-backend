@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Token = require('../models/Token');
 
 require('dotenv').config();
 
@@ -57,42 +56,6 @@ function connect() {
   db.on('connected', onConnected);
   db.on('reconnected', onReconnected);
   process.on('SIGINT', onSigint);
-
-  // Generate a Test API Key to use for development
-  // automatically and remove it when we move over to production
-  if (process.env.NODE_ENV === 'development') {
-    Token.findOne({ name: 'Test' }, (err, existing) => {
-      if (err) {
-        throw err;
-      }
-
-      if (existing) {
-        return;
-      }
-
-      const testToken = new Token({
-        name: 'Test',
-        key: '123',
-        dateCreated: new Date(),
-      });
-
-      testToken.save().then(() => {
-        console.log('Generated a test API Key, see docs for more info');
-      });
-    });
-  } else if (process.env.NODE_ENV === 'production') {
-    Token.findOne({ name: 'Test' }, (err, existing) => {
-      if (err) {
-        throw err;
-      }
-
-      if (existing) {
-        existing.delete().then(() => {
-          console.log('Removed a test API Key, see docs for more info');
-        });
-      }
-    });
-  }
 }
 
 module.exports = connect;

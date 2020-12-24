@@ -1,11 +1,13 @@
 const bcrypt = require('bcrypt');
-const auth = require('../utils/authentication');
+const jwt = require('jsonwebtoken');
 
 const User = require('../models/User');
 
 require('dotenv').config();
 
-const { SALT_ROUNDS } = process.env;
+const { SALT_ROUNDS, SECRET_JWT } = process.env;
+
+// TODO: Move each method outside module.exports and call them all at the bottom
 
 module.exports = {
   /**
@@ -18,98 +20,92 @@ module.exports = {
     const { firstName } = req.body;
     const { lastName } = req.body;
     const { password } = req.body;
-    const { token } = req.body;
 
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
+    if (firstName.length < 2 || firstName.length > 32) {
+      res.status(401).send({
+        message: 'First name must be 2-32 characters long',
+      });
+
+      return;
+    }
+
+    if (!firstName.match('^[a-zA-Z0-9_]*$')) {
+      res.status(401).send({
+        message: 'First name must be characters A-Z, a-z',
+      });
+
+      return;
+    }
+
+    if (lastName.length < 2 || lastName.length > 32) {
+      res.status(401).send({
+        message: 'Last name must be 2-32 characters long',
+      });
+
+      return;
+    }
+
+    if (!lastName.match('^[a-zA-Z0-9_]*$')) {
+      res.status(401).send({
+        message: 'Last name must be characters A-Z, a-z',
+      });
+
+      return;
+    }
+
+    if (password.length < 8 || password.length > 32) {
+      res.status(401).send({
+        message: 'Password must be 8-32 characters long',
+      });
+    }
+
+    User.findOne({ email }, (err, existing) => {
+      if (err) {
         res.status(401).send({
-          message: result.message,
+          message: 'Failed to retreive database information',
+        });
+
+        throw err;
+      }
+
+      if (existing) {
+        console.log(`found user with email: ${existing.email}`);
+
+        res.status(401).send({
+          message: 'Email is already in use',
         });
 
         return;
       }
 
-      if (firstName.length < 2 || firstName.length > 32) {
-        res.status(401).send({
-          message: 'First name must be 2-32 characters long',
-        });
-
-        return;
-      }
-
-      if (!firstName.match('^[a-zA-Z0-9_]*$')) {
-        res.status(401).send({
-          message: 'First name must be characters A-Z, a-z',
-        });
-
-        return;
-      }
-
-      if (lastName.length < 2 || lastName.length > 32) {
-        res.status(401).send({
-          message: 'Last name must be 2-32 characters long',
-        });
-
-        return;
-      }
-
-      if (!lastName.match('^[a-zA-Z0-9_]*$')) {
-        res.status(401).send({
-          message: 'Last name must be characters A-Z, a-z',
-        });
-
-        return;
-      }
-
-      if (password.length < 8 || password.length > 32) {
-        res.status(401).send({
-          message: 'Password must be 8-32 characters long',
-        });
-      }
-
-      User.findOne({ email }, (err, existing) => {
-        if (err) {
+      bcrypt.hash(password, parseInt(SALT_ROUNDS, 10), (hashErr, hash) => {
+        if (hashErr) {
           res.status(401).send({
-            message: 'Failed to retreive database information',
+            message: 'Failed to hash password',
           });
 
-          throw err;
+          throw hashErr;
         }
 
-        if (existing) {
-          console.log(`found user with email: ${existing.email}`);
+        const user = new User({
+          firstName,
+          lastName,
+          email,
+          emailConfirmed: false,
+          password: hash,
+        });
 
-          res.status(401).send({
-            message: 'Email is already in use',
+        user.save().then(() => {
+          const token = jwt.sign({ id: user.id }, SECRET_JWT, {
+            expiresIn: 86400,
           });
 
-          return;
-        }
-
-        bcrypt.hash(password, parseInt(SALT_ROUNDS, 10), (hashErr, hash) => {
-          if (hashErr) {
-            res.status(401).send({
-              message: 'Failed to hash password',
-            });
-
-            throw hashErr;
-          }
-
-          const user = new User({
-            firstName,
-            lastName,
-            email,
-            emailConfirmed: false,
-            password: hash,
+          res.status(201).send({
+            message: 'Account has been created',
+            token,
           });
 
-          user.save().then(() => {
-            res.status(201).send({
-              message: 'Account has been created',
-            });
-
-            console.log(`Successfully created new user for ${email}`);
-          });
+          console.log(`Successfully created new user for ${email}`);
         });
       });
     });
@@ -121,61 +117,26 @@ module.exports = {
    * @param {*} res Response
    */
   login: (req, res) => {
-    const { email } = req.body;
-    const { password } = req.body;
-    const { token } = req.body;
+    const { email, password } = req.body;
 
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
-        res.status(401).send({
-          message: result.message,
-        });
-
+    User.findOne({ email }, (err, user) => {
+      if (err) {
+        res.status(401).send('An error occured');
         return;
       }
 
-      User.findOne({ email }, (err, existing) => {
-        if (err) {
-          res.status(401).send({
-            message: 'Failed to establish connection to authentication server',
-          });
+      if (!user) {
+        res.status(401).send('Account not found');
+        return;
+      }
 
-          throw err;
-        }
+      if (!bcrypt.compareSync(password, user.password)) {
+        res.status(401).send('Invalid password');
+        return;
+      }
 
-        if (!existing) {
-          res.status(404).send({
-            message: 'Account not found',
-          });
-
-          return;
-        }
-
-        bcrypt.compare(password, existing.password, (hashErr, same) => {
-          if (hashErr) {
-            res.status(401).send({
-              message: 'Failed to authenticate account',
-            });
-
-            throw hashErr;
-          }
-
-          if (!same) {
-            res.status(401).send({
-              message: 'Invalid login credentials',
-            });
-
-            return;
-          }
-
-          res.status(200).send({
-            id: existing.id,
-            firstName: existing.firstName,
-            lastName: existing.lastName,
-            email: existing.email,
-          });
-        });
-      });
+      const token = jwt.sign({ id: user.id }, SECRET_JWT, { expiresIn: 86400 });
+      res.status(200).send({ message: 'Success', token });
     });
   },
 
@@ -187,76 +148,41 @@ module.exports = {
    * @param {*} res
    */
   updateInfo: (req, res) => {
-    const { id } = req.body;
-    const { email } = req.body;
-    const { firstName } = req.body;
-    const { lastName } = req.body;
-    const { token } = req.body;
+    const { email, firstName, lastName } = req.body;
 
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
-        res.status(401).send({
-          message: result.message,
-        });
+    User.findById(req.userId, (err, user) => {
+      const existingUser = user;
 
+      if (err) {
+        res.status(401).send('An error occured');
         return;
       }
 
-      User.findById(id, (err, existing) => {
-        const existingUser = existing;
+      if (!user) {
+        res.status(404).send('Account not found');
+        return;
+      }
 
-        if (err) {
-          res.status(401).send({
-            message:
-              'Failed to establish connection with authentication servers',
-          });
-
+      User.findOne({ email }, (overlapErr, overlappingUser) => {
+        if (overlapErr) {
+          res.status(401).send('An error occured');
           return;
         }
 
-        if (!existing) {
-          res.status(404).send({
-            message: 'Account not found',
-          });
-
+        if (overlappingUser && user.email !== email) {
+          res.status(401).send('Email is already in use');
           return;
         }
 
-        User.findOne({ email }, (overlapErr, overlappingUser) => {
-          if (overlapErr) {
-            res.status(401).send({
-              message: 'Failed to reach authentication server',
-            });
+        if (user.email !== email && user.emailConfirmed) {
+          existingUser.emailConfirmed = false;
+        }
 
-            return;
-          }
+        existingUser.firstName = firstName;
+        existingUser.lastName = lastName;
+        existingUser.email = email;
 
-          if (overlappingUser && existingUser.email !== email) {
-            res.status(409).send({
-              message: 'An account with this email already exists',
-            });
-
-            return;
-          }
-
-          // They changed their email, it needs to be confirmed again
-          if (existingUser.email !== email && existingUser.emailConfirmed) {
-            existingUser.emailConfirmed = false;
-          }
-
-          existingUser.email = email;
-          existingUser.firstName = firstName;
-          existingUser.lastName = lastName;
-
-          existingUser.save().then(() => {
-            res.status(200).send({
-              message: 'Account has been updated successfully',
-              firstName,
-              lastName,
-              email,
-            });
-          });
-        });
+        existingUser.save().then(() => res.status(200).send(existingUser));
       });
     });
   },
@@ -267,57 +193,31 @@ module.exports = {
    * @param {*} res Response
    */
   updatePassword: (req, res) => {
-    const { id } = req.body;
     const { password } = req.body;
-    const { token } = req.body;
 
-    auth.authenticate(token, (result) => {
-      if (!result.status === true) {
-        res.status(401).send({
-          message: result.message,
-        });
+    User.findById(req.userId, (err, user) => {
+      const foundUser = user;
 
+      if (err) {
+        res.status(401).send('An error occured');
         return;
       }
 
-      User.findById(id, (err, user) => {
-        const foundUser = user;
+      if (!user) {
+        res.status(404).send('Account not found');
+        return;
+      }
 
-        if (err) {
-          res.status(401).send({
-            message:
-              'Failed to establish a connection to the authentication server',
-          });
-
-          return;
+      bcrypt.hashSync(password, parseInt(SALT_ROUNDS, 10), (hashErr, hash) => {
+        if (hashErr) {
+          res.status(401).send('An error occured');
+          throw err;
         }
 
-        if (!user) {
-          res.status(404).send({
-            message: 'Account not found',
-          });
+        foundUser.password = hash;
 
-          return;
-        }
-
-        bcrypt.hash(password, parseInt(SALT_ROUNDS, 10), (hashErr, hash) => {
-          if (hashErr) {
-            res.status(401).send({
-              message: 'Failed to create password hash',
-            });
-
-            return;
-          }
-
-          foundUser.password = hash;
-
-          foundUser.save().then(() => {
-            res.status(200).send({
-              message: 'Password updated successfully',
-            });
-
-            console.log(`Updated password for ${foundUser.id}`);
-          });
+        foundUser.save().then(() => {
+          res.status(200).send('Password updated successfully');
         });
       });
     });

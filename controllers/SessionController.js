@@ -1,109 +1,42 @@
-const auth = require('../utils/authentication');
-
 const Session = require('../models/Session');
 
-module.exports = {
-  createSession: (req, res) => {
-    const data = req.body;
-    const { token } = req.body;
-    const session = new Session(data);
+/**
+ * Handles a POST request to create a new session
+ * @param {*} req Request
+ * @param {*} res Response
+ */
+function createSession(req, res) {
+  const data = req.body;
+  const session = new Session(data);
 
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
-        res.status(401).send({
-          message: result.message,
-        });
+  session.save().then(() => {
+    res.status(200).send('Success');
+  });
+}
 
-        return;
-      }
+/**
+ * Handles a GET request to obtain an existing session's data
+ * @param {*} req Request
+ * @param {*} res Response
+ * @param {*} callback Callback
+ */
+function getSession(req, res, callback) {
+  const { id } = req.body;
 
-      session.save().then(() => {
-        res.status(200).send({
-          message: 'Session has been saved successfully',
-        });
+  Session.findById(id, (err, session) => {
+    if (err) {
+      res.status(401).send('An error occured');
+      return;
+    }
 
-        console.log(
-          `Created new session "${
-            session.id
-          }" containing ${
-            session.exercises.length
-          } exercises`,
-        );
-      });
-    });
-  },
+    if (!session) {
+      res.status(404).send('Session not found');
+      return;
+    }
 
-  getSession: (req, res) => {
-    const { id } = req.body;
-    const { token } = req.body;
+    callback(session);
+  });
+}
 
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
-        res.status(401).send({
-          message: result.message,
-        });
-
-        return;
-      }
-
-      Session.findById(id, (err, session) => {
-        if (err) {
-          res.status(401).send({
-            message: 'Failed to establish connection to session server',
-          });
-
-          throw err;
-        }
-
-        if (!session) {
-          res.status(404).send({
-            message: 'Session not found',
-          });
-
-          return;
-        }
-
-        res.status(200).send(JSON.stringify(session));
-      });
-    });
-  },
-
-  deleteSession: (req, res) => {
-    const { id } = req.body;
-    const { token } = req.body;
-
-    auth.authenticate(token, (result) => {
-      if (result.status === false) {
-        res.status(401).send({
-          message: result.message,
-        });
-
-        return;
-      }
-
-      Session.findById(id, (err, session) => {
-        if (err) {
-          res.status(401).send({
-            message: 'Failed to establish connection to session server',
-          });
-
-          throw err;
-        }
-
-        if (!session) {
-          res.status(404).send({
-            message: 'Session not found',
-          });
-
-          return;
-        }
-
-        session.delete().then(() => {
-          res.status(200).send({
-            message: 'Session has been deleted successfully',
-          });
-        });
-      });
-    });
-  },
-};
+module.exports.createSession = createSession;
+module.exports.getSession = getSession;
