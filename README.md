@@ -16,12 +16,6 @@ This repository goes hand-in-hand with the JET Frontend repository which is deve
 - Run command `npm install` in the main directory
 - Run command `npm run dev` to start the server automatically in development mode, or `npm run prod` to start the server in production mode
 
-### API Keys
-
-When you run the JET Backend in development mode for the first time, a testing API Key is automatically generated with the value **123**. By default, all requests passed to JET require this API Key present with the name **token**.
-
-If you switch to production, this key will be deleted automatically on first launch.
-
 # Routes
 
 ### Users
@@ -29,55 +23,41 @@ If you switch to production, this key will be deleted automatically on first lau
 `/users/create`  
 Creates a new JET User
 Required parameters:
-
 - email
 - firstName
 - lastName
 - password
-- token
 
 `/users/login`  
 Authorizes an existing JET User
 Required parameters:
-
 - email
 - password
-- token
 
 `/users/update/info`  
 Updates account information for a JET User
 Required parameters:
-
 - id
 - email
 - firstName
 - lastName
-- token
 
 `/users/update/password`  
 Updates account password for a JET User
 Required parameters:
-
 - id
 - password
-- token
 
 ### Sessions
 
 `/session/create`  
 Creates a new workout session
-
 - data (Must match the SessionSchema!)
-- token
 
 `/session/get`  
 Retrieves data for an existing exercise session
-
 - id
-- token
 
 `/session/delete`  
 Delete an existing exercise session
-
 - id
-- token
