@@ -141,6 +141,35 @@ module.exports = {
   },
 
   /**
+   * Returns a user matching the provided verified JWT token
+   * @param {*} req Request
+   * @param {*} res Response
+   */
+  get: (req, res) => {
+    User.findById(req.userId, (err, user) => {
+      const existingUser = user;
+
+      if (err) {
+        res.status(401).send('An error occured');
+        return;
+      }
+
+      if (!user) {
+        res.status(404).send('Account not found');
+        return;
+      }
+
+      const result = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      }
+
+      res.status(200).send(result);
+    });
+  },
+
+  /**
    * Handles updating account information for a user
    *
    * !!! NOTE: This does not handle updating passwords, we use #updatePassword for that. !!!

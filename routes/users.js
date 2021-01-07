@@ -4,6 +4,13 @@ const UserController = require('../controllers/UserController');
 const Verify = require('../utils/Verify');
 
 /**
+ * Handles GET request to retrieve a users account data
+ */
+router.get('/', Verify, (req, res) => {
+  UserController.get(req, res);
+});
+
+/**
  * Handles POST request to create a new account
  */
 router.post('/create', (req, res) => {
